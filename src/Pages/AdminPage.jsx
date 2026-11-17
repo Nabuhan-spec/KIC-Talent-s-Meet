@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festContext'
 
 const TABS = [
   'Branding',
