@@ -1,14 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { FestProvider } from './context/FestContext'
-import Layout from './components/Layout'
-import HomePage from './pages/HomePage'
-import TeamsPage from './pages/TeamsPage'
-import EventsPage from './pages/EventsPage'
-import LeaderboardPage from './pages/LeaderboardPage'
-import OfficialsPage from './pages/OfficialsPage'
-import PhotoStudioPage from './pages/PhotoStudioPage'
-import AdminPage from './pages/AdminPage'
-import './App.css'
+import { FestProvider } from "./context/festcontext";
+import Layout from "./components/layout";
+
+import HomePage from "./Pages/HomePage";
+import TeamsPage from "./Pages/TeamsPage";
+import EventsPage from "./Pages/EventsPage";
+import LeaderboardPage from "./Pages/LeaderboardPage";
+import OfficialsPage from "./Pages/OfficialsPage";
+import PhotoStudioPage from "./Pages/PhotoStudioPage";
+import AdminPage from "./Pages/AdminPage";
 
 function App() {
   return (
