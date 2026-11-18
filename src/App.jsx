@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { FestProvider } from "./context/festcontext";
+import { FestProvider } from "./context/FestContext";
 import Layout from "./components/layout";
 
 import HomePage from "./Pages/HomePage";
