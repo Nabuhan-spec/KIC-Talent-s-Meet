@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festcontext'
 
 export default function PhotoStudioPage() {
   const { frames, settings } = useFest()

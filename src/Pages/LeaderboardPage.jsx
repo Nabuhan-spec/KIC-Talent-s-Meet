@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festcontext'
 
 const CATEGORIES = ['All', 'Senior', 'Junior', 'Sub-Junior', 'House', 'General']
 

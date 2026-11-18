@@ -1,4 +1,4 @@
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festcontext'
 
 export default function OfficialsPage() {
   const { officials, loading } = useFest()

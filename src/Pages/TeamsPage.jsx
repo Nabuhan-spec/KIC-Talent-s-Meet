@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festcontext'
 
 export default function TeamsPage() {
   const { teams, divisions, members, participants, events, loading } = useFest()

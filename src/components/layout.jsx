@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festcontext'
 
 export default function Layout() {
   const { settings, isAdmin } = useFest()

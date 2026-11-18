@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useFest } from '../context/FestContext'
+import { useFest } from '../context/festcontext'
 
 const CATEGORIES = ['All', 'Senior', 'Junior', 'Sub-Junior', 'House', 'General']
 
