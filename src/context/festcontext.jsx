@@ -26,11 +26,10 @@ export function FestProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Authentication state
   const [session, setSession] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  // Verify whether the authenticated user is an administrator
+  // Verify administrator access
   useEffect(() => {
     let active = true
     let requestId = 0
@@ -68,7 +67,6 @@ export function FestProvider({ children }) {
       }
     }
 
-    // Load the existing session
     supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return
 
@@ -80,15 +78,11 @@ export function FestProvider({ children }) {
       checkAdmin(data.session)
     })
 
-    // Listen for login and logout
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      // Defer the database query until the auth callback finishes
       setTimeout(() => {
-        if (active) {
-          checkAdmin(currentSession)
-        }
+        if (active) checkAdmin(currentSession)
       }, 0)
     })
 
@@ -97,6 +91,62 @@ export function FestProvider({ children }) {
       subscription.unsubscribe()
     }
   }, [])
+
+  // Upload media to Supabase Storage
+  const uploadMedia = useCallback(async (file, folder) => {
+    if (!file) {
+      throw new Error('No file selected')
+    }
+
+    if (!session) {
+      throw new Error('Please log in before uploading')
+    }
+
+    if (!isAdmin) {
+      throw new Error('Only administrators can upload files')
+    }
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/svg+xml'
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Unsupported image format')
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error('File exceeds the 50 MB limit')
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const filePath = `${folder}/${Date.now()}-${safeName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('festival-media')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+      throw uploadError
+    }
+
+    const { data } = supabase.storage
+      .from('festival-media')
+      .getPublicUrl(filePath)
+
+    if (!data?.publicUrl) {
+      throw new Error('Could not generate public image URL')
+    }
+
+    return data.publicUrl
+  }, [session, isAdmin])
 
   // Load festival data
   const refreshData = useCallback(async () => {
@@ -116,55 +166,16 @@ export function FestProvider({ children }) {
         participantsRes,
         framesRes
       ] = await Promise.all([
-        supabase
-          .from('festival_settings')
-          .select('*')
-          .limit(1)
-          .maybeSingle(),
-
-        supabase
-          .from('teams')
-          .select('*')
-          .order('name'),
-
-        supabase
-          .from('divisions')
-          .select('*')
-          .order('name'),
-
-        supabase
-          .from('members')
-          .select('*')
-          .order('name'),
-
-        supabase
-          .from('events')
-          .select('*')
-          .order('event_date'),
-
-        supabase
-          .from('announcements')
-          .select('*')
-          .eq('is_published', true)
-          .order('created_at', { ascending: false }),
-
-        supabase
-          .from('officials')
-          .select('*')
-          .order('display_order'),
-
-        supabase
-          .from('results')
-          .select('*'),
-
-        supabase
-          .from('participants')
-          .select('*'),
-
-        supabase
-          .from('photo_frames')
-          .select('*')
-          .eq('is_active', true)
+        supabase.from('festival_settings').select('*').limit(1).maybeSingle(),
+        supabase.from('teams').select('*').order('name'),
+        supabase.from('divisions').select('*').order('name'),
+        supabase.from('members').select('*').order('name'),
+        supabase.from('events').select('*').order('event_date'),
+        supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }),
+        supabase.from('officials').select('*').order('display_order'),
+        supabase.from('results').select('*'),
+        supabase.from('participants').select('*'),
+        supabase.from('photo_frames').select('*').eq('is_active', true)
       ])
 
       const responses = [
@@ -181,10 +192,7 @@ export function FestProvider({ children }) {
       ]
 
       const failed = responses.find(response => response.error)
-
-      if (failed) {
-        throw failed.error
-      }
+      if (failed) throw failed.error
 
       setFestival(festivalRes.data)
       setTeams(teamsRes.data || [])
@@ -205,7 +213,6 @@ export function FestProvider({ children }) {
     }
   }, [])
 
-  // Initial festival data loading
   useEffect(() => {
     refreshData()
   }, [refreshData])
@@ -224,17 +231,16 @@ export function FestProvider({ children }) {
         participants,
         photoFrames,
 
-        // Authentication
         session,
         isAdmin,
 
-        // Compatibility with AdminPage and Layout
         settings: festival,
         frames: photoFrames,
 
         loading,
         error,
-        refreshData
+        refreshData,
+        uploadMedia
       }}
     >
       {children}
