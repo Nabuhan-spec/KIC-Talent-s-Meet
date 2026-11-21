@@ -3299,3 +3299,52 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Officials Contact Buttons */
+
+.official-contact {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  width: 100%;
+}
+
+.official-contact a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 8px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.official-call-btn {
+  background: #2563eb;
+  color: white;
+}
+
+.official-call-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+.official-whatsapp-btn {
+  background: #168a50;
+  color: white;
+}
+
+.official-whatsapp-btn:hover {
+  background: #128044;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 400px) {
+  .official-contact {
+    flex-direction: column;
+  }
+}
