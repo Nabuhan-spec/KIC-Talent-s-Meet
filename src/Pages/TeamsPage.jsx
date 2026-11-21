@@ -1,163 +1,580 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useFest } from '../context/festcontext'
 
 export default function TeamsPage() {
-  const { teams, divisions, members, participants, events, loading } = useFest()
+  const {
+    teams = [],
+    divisions = [],
+    members = [],
+    participants = [],
+    events = [],
+    loading,
+  } = useFest()
+
   const [selectedTeam, setSelectedTeam] = useState('ALL')
   const [selectedDivision, setSelectedDivision] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedMember, setSelectedMember] = useState(null)
+  const [activeTab, setActiveTab] = useState('overview')
+
+  const safeTeams = Array.isArray(teams) ? teams : []
+  const safeDivisions = Array.isArray(divisions) ? divisions : []
+  const safeMembers = Array.isArray(members) ? members : []
+  const safeParticipants = Array.isArray(participants) ? participants : []
+  const safeEvents = Array.isArray(events) ? events : []
 
   const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      const matchesTeam = selectedTeam === 'ALL' || m.team_id === selectedTeam
-      const matchesDiv = selectedDivision === 'ALL' || m.division_id === selectedDivision
-      const matchesSearch =
-        !searchQuery.trim() ||
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.class_name && m.class_name.toLowerCase().includes(searchQuery.toLowerCase()))
-      return matchesTeam && matchesDiv && matchesSearch
-    })
-  }, [members, selectedTeam, selectedDivision, searchQuery])
+    const query = searchQuery.trim().toLowerCase()
 
-  const getTeamName = (id) => teams.find((t) => t.id === id)?.name || 'Unassigned Team'
-  const getDivisionName = (id) => divisions.find((d) => d.id === id)?.name || 'General'
+    return safeMembers.filter((member) => {
+      const matchesTeam =
+        selectedTeam === 'ALL' || String(member.team_id) === String(selectedTeam)
+
+      const matchesDivision =
+        selectedDivision === 'ALL' ||
+        String(member.division_id) === String(selectedDivision)
+
+      const matchesSearch =
+        !query ||
+        (member.name || '').toLowerCase().includes(query) ||
+        (member.class_name || '').toLowerCase().includes(query)
+
+      return matchesTeam && matchesDivision && matchesSearch
+    })
+  }, [safeMembers, selectedTeam, selectedDivision, searchQuery])
+
+  const getTeamName = (id) =>
+    safeTeams.find((team) => String(team.id) === String(id))?.name || 'Unassigned Team'
+
+  const getDivisionName = (id) =>
+    safeDivisions.find((division) => String(division.id) === String(id))?.name || 'General'
+
   const getMemberEvents = (memberId) => {
-    const eventIds = participants.filter((p) => p.member_id === memberId).map((p) => p.event_id)
-    return events.filter((e) => eventIds.includes(e.id))
+    const eventIds = safeParticipants
+      .filter((participant) => String(participant.member_id) === String(memberId))
+      .map((participant) => String(participant.event_id))
+
+    return safeEvents.filter((event) => eventIds.includes(String(event.id)))
   }
 
+  const openProfile = (member) => {
+    setSelectedMember(member)
+    setActiveTab('overview')
+  }
+
+  const closeProfile = () => {
+    setSelectedMember(null)
+  }
+
+  // Close the profile modal with Escape and prevent background scrolling.
+  useEffect(() => {
+    if (!selectedMember) return
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') closeProfile()
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.body.style.overflow = ''
+    }
+  }, [selectedMember])
+
+  const totalMembers = safeMembers.length
+
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="section-kicker">HOUSES & COMPETITORS</div>
-        <h1>Festival <span>Teams & Members.</span></h1>
-        <p>Browse team profiles, filter by Senior, Junior, or Sub-Junior divisions, and search participants.</p>
-      </div>
-
-      {/* Team Profile Cards */}
-      <div className="teams-overview-grid">
-        {teams.length === 0 && !loading && (
-          <div className="empty-state">Teams are being finalized. Check back soon!</div>
-        )}
-        {teams.map((team, idx) => {
-          const teamMembers = members.filter((m) => m.team_id === team.id)
-          const isSelected = selectedTeam === team.id
-          return (
-            <div
-              key={team.id}
-              className={`team-profile-card ${idx % 2 === 0 ? 'accent-purple' : 'accent-orange'} ${isSelected ? 'active-card' : ''}`}
-              onClick={() => setSelectedTeam(isSelected ? 'ALL' : team.id)}
-            >
-              <div className="team-card-header">
-                {team.logo_url ? (
-                  <img src={team.logo_url} alt={team.name} className="team-card-logo" />
-                ) : (
-                  <div className="team-card-avatar">{team.name.slice(0, 2).toUpperCase()}</div>
-                )}
-                <div>
-                  <span className="badge">{teamMembers.length} Members</span>
-                  <h2>{team.name}</h2>
-                </div>
-              </div>
-              <p>{team.description || 'Competing with passion, creativity, and team spirit.'}</p>
-              <span className="filter-hint">
-                {isSelected ? '✓ Showing Team Members (Click to reset)' : 'Click to filter members →'}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Search & Division Filter Bar */}
-      <div className="filter-bar">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search student by name or class..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-
-        <div className="pill-group">
-          <button
-            className={`filter-pill ${selectedTeam === 'ALL' ? 'active' : ''}`}
-            onClick={() => setSelectedTeam('ALL')}
-          >
-            All Teams
-          </button>
-          {teams.map((t) => (
-            <button
-              key={t.id}
-              className={`filter-pill ${selectedTeam === t.id ? 'active' : ''}`}
-              onClick={() => setSelectedTeam(t.id)}
-            >
-              {t.name}
-            </button>
-          ))}
+    <main className="tp-page">
+      {/* Page heading */}
+      <header className="tp-header">
+        <div className="tp-kicker">
+          <span className="tp-kicker-dot" />
+          HOUSES & COMPETITORS
         </div>
 
-        <div className="pill-group">
-          <button
-            className={`filter-pill ${selectedDivision === 'ALL' ? 'active' : ''}`}
-            onClick={() => setSelectedDivision('ALL')}
-          >
-            All Divisions
-          </button>
-          {divisions.map((d) => (
-            <button
-              key={d.id}
-              className={`filter-pill ${selectedDivision === d.id ? 'active' : ''}`}
-              onClick={() => setSelectedDivision(d.id)}
-            >
-              {d.name}
-            </button>
-          ))}
-        </div>
-      </div>
+        <h1>
+          Festival <span>Teams & Members.</span>
+        </h1>
 
-      {/* Student Roster Grid */}
-      <div className="members-grid">
-        {filteredMembers.length === 0 ? (
-          <div className="empty-state">No students match your current filter.</div>
+        <p>
+          Explore team profiles, discover competitors, and view each
+          student's festival participation.
+        </p>
+
+        <div className="tp-header-stats">
+          <div className="tp-stat">
+            <span className="tp-stat-number">{safeTeams.length}</span>
+            <span className="tp-stat-label">Teams</span>
+          </div>
+
+          <div className="tp-stat-divider" />
+
+          <div className="tp-stat">
+            <span className="tp-stat-number">{totalMembers}</span>
+            <span className="tp-stat-label">Members</span>
+          </div>
+
+          <div className="tp-stat-divider" />
+
+          <div className="tp-stat">
+            <span className="tp-stat-number">{safeDivisions.length}</span>
+            <span className="tp-stat-label">Divisions</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Team cards */}
+      <section className="tp-section">
+        <div className="tp-section-heading">
+          <div>
+            <span className="tp-section-eyebrow">THE COMPETITORS</span>
+            <h2>Meet the teams</h2>
+          </div>
+
+          <span className="tp-section-count">
+            {safeTeams.length} teams
+          </span>
+        </div>
+
+        {safeTeams.length === 0 && !loading ? (
+          <div className="tp-empty">
+            <span className="tp-empty-icon">✦</span>
+            <h3>No teams available</h3>
+            <p>Teams will appear here once they have been added.</p>
+          </div>
         ) : (
-          filteredMembers.map((member) => {
-            const memberEvents = getMemberEvents(member.id)
-            return (
-              <div className="member-card" key={member.id}>
-                <div className="member-top">
-                  {member.photo_url ? (
-                    <img src={member.photo_url} alt={member.name} className="member-photo" />
-                  ) : (
-                    <div className="member-avatar">{member.name.charAt(0).toUpperCase()}</div>
-                  )}
-                  <div>
-                    <h3>{member.name}</h3>
-                    <span className="member-meta">
-                      {member.class_name || 'Student'} • {getDivisionName(member.division_id)}
+          <div className="tp-team-grid">
+            {safeTeams.map((team, index) => {
+              const teamMembers = safeMembers.filter(
+                (member) => String(member.team_id) === String(team.id)
+              )
+
+              const isSelected = String(selectedTeam) === String(team.id)
+
+              return (
+                <button
+                  type="button"
+                  key={team.id}
+                  className={`tp-team-card tp-team-${index % 3} ${
+                    isSelected ? 'tp-team-selected' : ''
+                  }`}
+                  onClick={() =>
+                    setSelectedTeam(isSelected ? 'ALL' : team.id)
+                  }
+                  aria-pressed={isSelected}
+                >
+                  <span className="tp-team-top">
+                    <span className="tp-team-logo">
+                      {team.logo_url ? (
+                        <img src={team.logo_url} alt="" />
+                      ) : (
+                        <span>
+                          {(team.name || 'TM').slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
                     </span>
-                    <span className="team-tag">{getTeamName(member.team_id)}</span>
+
+                    <span className="tp-team-member-count">
+                      {teamMembers.length} MEMBERS
+                    </span>
+                  </span>
+
+                  <span className="tp-team-name">{team.name}</span>
+
+                  <span className="tp-team-description">
+                    {team.description ||
+                      'Competing with passion, creativity, and team spirit.'}
+                  </span>
+
+                  <span className="tp-team-action">
+                    {isSelected ? '✓ Currently selected' : 'View team members →'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Members section */}
+      <section className="tp-section tp-members-section">
+        <div className="tp-section-heading">
+          <div>
+            <span className="tp-section-eyebrow">STUDENT DIRECTORY</span>
+            <h2>Meet the members</h2>
+            <p className="tp-section-description">
+              Search and explore the students participating in the festival.
+            </p>
+          </div>
+
+          <span className="tp-result-count">
+            {filteredMembers.length} results
+          </span>
+        </div>
+
+        {/* Search and filters */}
+        <div className="tp-controls">
+          <div className="tp-search-wrap">
+            <svg
+              viewBox="0 0 24 24"
+              className="tp-search-icon"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16 16 4 4" />
+            </svg>
+
+            <input
+              type="search"
+              className="tp-search"
+              placeholder="Search by student name or class..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+
+            {searchQuery && (
+              <button
+                type="button"
+                className="tp-clear-search"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          <div className="tp-filter-group">
+            <span className="tp-filter-label">TEAM</span>
+            <div className="tp-filter-options">
+              <button
+                type="button"
+                className={`tp-filter ${
+                  selectedTeam === 'ALL' ? 'tp-filter-active' : ''
+                }`}
+                onClick={() => setSelectedTeam('ALL')}
+              >
+                All teams
+              </button>
+
+              {safeTeams.map((team) => (
+                <button
+                  type="button"
+                  key={team.id}
+                  className={`tp-filter ${
+                    String(selectedTeam) === String(team.id)
+                      ? 'tp-filter-active'
+                      : ''
+                  }`}
+                  onClick={() => setSelectedTeam(team.id)}
+                >
+                  {team.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="tp-filter-group">
+            <span className="tp-filter-label">DIVISION</span>
+            <div className="tp-filter-options">
+              <button
+                type="button"
+                className={`tp-filter ${
+                  selectedDivision === 'ALL' ? 'tp-filter-active' : ''
+                }`}
+                onClick={() => setSelectedDivision('ALL')}
+              >
+                All divisions
+              </button>
+
+              {safeDivisions.map((division) => (
+                <button
+                  type="button"
+                  key={division.id}
+                  className={`tp-filter ${
+                    String(selectedDivision) === String(division.id)
+                      ? 'tp-filter-active'
+                      : ''
+                  }`}
+                  onClick={() => setSelectedDivision(division.id)}
+                >
+                  {division.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(selectedTeam !== 'ALL' ||
+            selectedDivision !== 'ALL' ||
+            searchQuery) && (
+            <button
+              type="button"
+              className="tp-reset-filters"
+              onClick={() => {
+                setSelectedTeam('ALL')
+                setSelectedDivision('ALL')
+                setSearchQuery('')
+              }}
+            >
+              Reset filters ×
+            </button>
+          )}
+        </div>
+
+        {/* Student cards */}
+        {loading ? (
+          <div className="tp-empty">
+            <div className="tp-loader" />
+            <p>Loading festival members...</p>
+          </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="tp-empty">
+            <span className="tp-empty-icon">⌕</span>
+            <h3>No students found</h3>
+            <p>Try changing your search or filters.</p>
+
+            <button
+              type="button"
+              className="tp-reset-button"
+              onClick={() => {
+                setSelectedTeam('ALL')
+                setSelectedDivision('ALL')
+                setSearchQuery('')
+              }}
+            >
+              Clear all filters
+            </button>
+          </div>
+        ) : (
+          <div className="tp-member-grid">
+            {filteredMembers.map((member) => {
+              const memberEvents = getMemberEvents(member.id)
+
+              return (
+                <article className="tp-member-card" key={member.id}>
+                  <div className="tp-member-card-top">
+                    <div className="tp-member-photo">
+                      {member.photo_url ? (
+                        <img src={member.photo_url} alt={member.name} />
+                      ) : (
+                        <span>
+                          {(member.name || '?').charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="tp-member-info">
+                      <h3>{member.name}</h3>
+                      <p>
+                        {member.class_name || 'Student'} ·{' '}
+                        {getDivisionName(member.division_id)}
+                      </p>
+                      <span className="tp-member-team">
+                        {getTeamName(member.team_id)}
+                      </span>
+                    </div>
                   </div>
+
+                  {member.bio && (
+                    <p className="tp-member-bio">{member.bio}</p>
+                  )}
+
+                  <div className="tp-member-card-footer">
+                    <span className="tp-event-count">
+                      <span className="tp-event-dot" />
+                      {memberEvents.length} registered events
+                    </span>
+
+                    <button
+                      type="button"
+                      className="tp-view-profile"
+                      onClick={() => openProfile(member)}
+                      aria-label={`View ${member.name}'s profile`}
+                      title="View student profile"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span>View profile</span>
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Student profile modal */}
+      {selectedMember && (
+        <div
+          className="tp-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeProfile()
+          }}
+        >
+          <section
+            className="tp-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tp-modal-name"
+          >
+            <button
+              type="button"
+              className="tp-modal-close"
+              onClick={closeProfile}
+              aria-label="Close profile"
+            >
+              ×
+            </button>
+
+            <div className="tp-modal-header">
+              <div className="tp-modal-photo">
+                {selectedMember.photo_url ? (
+                  <img
+                    src={selectedMember.photo_url}
+                    alt={selectedMember.name}
+                  />
+                ) : (
+                  <span>
+                    {(selectedMember.name || '?').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              <div className="tp-modal-identity">
+                <span className="tp-section-eyebrow">STUDENT PROFILE</span>
+                <h2 id="tp-modal-name">{selectedMember.name}</h2>
+                <p>
+                  {selectedMember.class_name || 'Student'} ·{' '}
+                  {getDivisionName(selectedMember.division_id)}
+                </p>
+                <span className="tp-member-team">
+                  {getTeamName(selectedMember.team_id)}
+                </span>
+              </div>
+            </div>
+
+            <div className="tp-modal-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'overview'}
+                className={activeTab === 'overview' ? 'active' : ''}
+                onClick={() => setActiveTab('overview')}
+              >
+                Overview
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'events'}
+                className={activeTab === 'events' ? 'active' : ''}
+                onClick={() => setActiveTab('events')}
+              >
+                Events
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'achievements'}
+                className={activeTab === 'achievements' ? 'active' : ''}
+                onClick={() => setActiveTab('achievements')}
+              >
+                Achievements
+              </button>
+            </div>
+
+            <div className="tp-modal-content">
+              {activeTab === 'overview' && (
+                <div className="tp-tab-panel">
+                  <h3>Student information</h3>
+
+                  <div className="tp-info-grid">
+                    <div className="tp-info-item">
+                      <span>Full name</span>
+                      <strong>{selectedMember.name || 'Not provided'}</strong>
+                    </div>
+
+                    <div className="tp-info-item">
+                      <span>Class</span>
+                      <strong>{selectedMember.class_name || 'Not provided'}</strong>
+                    </div>
+
+                    <div className="tp-info-item">
+                      <span>Team</span>
+                      <strong>{getTeamName(selectedMember.team_id)}</strong>
+                    </div>
+
+                    <div className="tp-info-item">
+                      <span>Division</span>
+                      <strong>
+                        {getDivisionName(selectedMember.division_id)}
+                      </strong>
+                    </div>
+
+                    <div className="tp-info-item">
+                      <span>Registered events</span>
+                      <strong>
+                        {getMemberEvents(selectedMember.id).length}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {selectedMember.bio && (
+                    <div className="tp-about">
+                      <h3>About</h3>
+                      <p>{selectedMember.bio}</p>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {member.bio && <p className="member-bio">{member.bio}</p>}
+              {activeTab === 'events' && (
+                <div className="tp-tab-panel">
+                  <h3>Registered events</h3>
 
-                <div className="member-events">
-                  <span className="mini-label">Registered Events ({memberEvents.length}):</span>
-                  {memberEvents.length === 0 ? (
-                    <span className="muted-text">None listed yet</span>
+                  {getMemberEvents(selectedMember.id).length === 0 ? (
+                    <div className="tp-tab-empty">
+                      <span>✦</span>
+                      <p>No registered events found for this student.</p>
+                    </div>
                   ) : (
-                    <div className="event-tags">
-                      {memberEvents.map((ev) => (
-                        <span key={ev.id} className="event-chip">{ev.name}</span>
+                    <div className="tp-modal-event-list">
+                      {getMemberEvents(selectedMember.id).map((event) => (
+                        <div className="tp-modal-event" key={event.id}>
+                          <span className="tp-modal-event-icon">✦</span>
+                          <span>{event.name}</span>
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
-              </div>
-            )
-          })
-        )}
-      </div>
-    </div>
+              )}
+
+              {activeTab === 'achievements' && (
+                <div className="tp-tab-panel">
+                  <h3>Achievement passport</h3>
+
+                  <div className="tp-tab-empty">
+                    <span>🏆</span>
+                    <p>Achievement records are not connected yet.</p>
+                    <small>
+                      Approved results and awards can appear here once the
+                      results system is integrated.
+                    </small>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </main>
   )
 }
